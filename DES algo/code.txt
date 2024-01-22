@@ -1,0 +1,10 @@
+*pre requisist
+	pip install cryptography
+	pip install pycryptodome
+
+
+cd /home/sairudra21bce1389/Desktop/VIT/crypto/LAB_h1/lab1_HW/DES/
+python receiver.py
+*new terminal
+cd /home/sairudra21bce1389/Desktop/VIT/crypto/LAB_h1/lab1_HW/DES/
+python sender.py

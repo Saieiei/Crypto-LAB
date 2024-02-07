@@ -7,9 +7,8 @@ def hex2bin(s):
           'e': "1110", 'f': "1111"}
     binary = ""
     for char in s:
-        binary += mp[char.upper()]  # Convert to uppercase before lookup
+        binary += mp[char]
     return binary
-
 
 
 def bin2hex(s):
@@ -116,7 +115,7 @@ s_box = [
     [[15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10],
      [3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5],
      [0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15],
-     [13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9]],
+     [13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9]],
     [[10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8],
      [13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1],
      [13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7],
@@ -148,45 +147,22 @@ final_perm = [40, 8, 48, 16, 56, 24, 64, 32,
               34, 2, 42, 10, 50, 18, 58, 26,
               33, 1, 41, 9, 49, 17, 57, 25]
 
-def inv_shift_rows(state):
-    # Function to perform inverse ShiftRows operation
-    for i in range(4):
-        state[i] = state[i][-i:] + state[i][:-i]
-    return state
+# Initial Permutation
+# text = "123456ABCD132536"
+text = input("Enter the value for plain text: ")
+text = hex2bin(text)
+text = permute(text, initial_perm, 64)
+print("After initial permutation:", bin2hex(text.upper()))
 
-def inv_sub_bytes(state):
-    # Function to perform inverse SubBytes operation
-    for i in range(4):
-        for j in range(4):
-            row = int(state[i][j][0], 16)
-            col = int(state[i][j][1], 16)
-            state[i][j] = format(inv_sbox[row][col], '02x')
-    return state
+# Converting text to list
+text = [text[i:i + 8] for i in range(0, len(text), 8)]
 
-def inv_mix_columns(state):
-    # Function to perform inverse MixColumns operation
-    for i in range(4):
-        a = int(state[0][i], 16)
-        b = int(state[1][i], 16)
-        c = int(state[2][i], 16)
-        d = int(state[3][i], 16)
-
-        state[0][i] = format(
-            gmul(0x0e, a) ^ gmul(0x0b, b) ^ gmul(0x0d, c) ^ gmul(0x09, d), '02x')
-        state[1][i] = format(
-            gmul(0x09, a) ^ gmul(0x0e, b) ^ gmul(0x0b, c) ^ gmul(0x0d, d), '02x')
-        state[2][i] = format(
-            gmul(0x0d, a) ^ gmul(0x09, b) ^ gmul(0x0e, c) ^ gmul(0x0b, d), '02x')
-        state[3][i] = format(
-            gmul(0x0b, a) ^ gmul(0x0d, b) ^ gmul(0x09, c) ^ gmul(0x0e, d), '02x')
-
-    return state
-
-def aes_encrypt_verbose(plain_text, key):
-    # Function to perform AES encryption with verbose output
-    state = [[plain_text[i + j*4:i + j*4 + 2] for i in range(0, 32, 2)] for j in range(4)]
-
-    keyp = [57, 49, 41, 33, 25, 17, 9, 1,
+# Key generation
+# key = "AABB09182736CCDD"
+key = input("Enter the value for key: ")
+key = hex2bin(key)
+# parity bit drop table
+keyp = [57, 49, 41, 33, 25, 17, 9, 1,
         58, 50, 42, 34, 26, 18, 10, 2,
         59, 51, 43, 35, 27, 19, 11, 3,
         60, 52, 44, 36, 63, 55, 47, 39,
@@ -194,122 +170,79 @@ def aes_encrypt_verbose(plain_text, key):
         30, 22, 14, 6, 61, 53, 45, 37,
         29, 21, 13, 5, 28, 20, 12, 4]
 
+# getting 56 bit key from 64 bit using the parity bits
+key = permute(key, keyp, 56)
+print("After parity bit drop:", bin2hex(key.upper()))
 
-    key_schedule = key_expansion(key)
+# Number of bit shifts
+shift_table = [1, 1, 2, 2,
+               2, 2, 2, 2,
+               1, 2, 2, 2,
+               2, 2, 2, 1]
 
-    print("Round 0 (Initial Round):")
-    print_state(state)
-    state = add_round_key(state, key_schedule[:4])
+# Key- Compression Table : Compression of key from 56 bits to 48 bits
+key_comp = [14, 17, 11, 24, 1, 5, 3, 28,
+            15, 6, 21, 10, 23, 19, 12, 4,
+            26, 8, 16, 7, 27, 20, 13, 2,
+            41, 52, 31, 37, 47, 55, 30, 40,
+            51, 45, 33, 48, 44, 49, 39, 56,
+            34, 53, 46, 42, 50, 36, 29, 32]
 
-    for round_num in range(1, 10):
-        print(f"\nRound {round_num}:")
-        state = sub_bytes(state)
-        state = shift_rows(state)
-        state = mix_columns(state)
-        state = add_round_key(state, key_schedule[round_num*4:(round_num+1)*4])
-        print_state(state)
+# Splitting
+left = key[0:28]
+right = key[28:56]
 
-    print("\nRound 10 (Final Round):")
-    state = sub_bytes(state)
-    state = shift_rows(state)
-    state = add_round_key(state, key_schedule[40:])
-    print_state(state)
+for i in range(16):
+    # Key- Compression
+    left = shift_left(left, shift_table[i])
+    right = shift_left(right, shift_table[i])
 
-    cipher_text = ''.join([''.join(row) for row in state])
-    return cipher_text
+    # Combining
+    combine = left + right
 
-def aes_decrypt_verbose(cipher_text, key):
-    # Function to perform AES decryption with verbose output
-    state = [[cipher_text[i + j*4:i + j*4 + 2] for i in range(0, 32, 2)] for j in range(4)]
+    # Key Compression
+    round_key = permute(combine, key_comp, 48)
 
-    key_schedule = key_expansion(key)
-    key_schedule = key_schedule[::-1]
+    print("Round Key {}: {}".format(i + 1, bin2hex(round_key.upper())))
 
-    print("Round 0 (Initial Round):")
-    print_state(state)
-    state = add_round_key(state, key_schedule[:4])
+# Main DES Algorithm
+# Initial Permutation
+text = permute(text, initial_perm, 64)
+print("After initial permutation:", bin2hex(text.upper()))
 
-    for round_num in range(1, 10):
-        print(f"\nRound {round_num}:")
-        state = inv_shift_rows(state)
-        state = inv_sub_bytes(state)
-        state = add_round_key(state, key_schedule[round_num*4:(round_num+1)*4])
-        state = inv_mix_columns(state)
-        print_state(state)
+# Splitting
+left = text[0:32]
+right = text[32:64]
+for i in range(16):
+    right_expanded = permute(right, exp_d, 48)  # Expansion D-box
 
-    print("\nRound 10 (Final Round):")
-    state = inv_shift_rows(state)
-    state = inv_sub_bytes(state)
-    state = add_round_key(state, key_schedule[40:])
-    print_state(state)
+    # XOR RoundKey and right_expanded
+    xor_x = xor(right_expanded, round_key)
 
-    plain_text = ''.join([''.join(row) for row in state])
-    return plain_text
+    # S-boxes
+    result = ""
+    for j in range(8):
+        row = bin2dec(int(xor_x[j * 6] + xor_x[j * 6 + 5]))
+        col = bin2dec(int(xor_x[j * 6 + 1] + xor_x[j * 6 + 2] + xor_x[j * 6 + 3] + xor_x[j * 6 + 4]))
+        val = s_box[j][row][col]
+        result += dec2bin(val)
 
-def print_state(state):
-    # Function to print the state matrix
-    print("State:")
-    for row in state:
-        print(" ".join(row))
-    print()
+    # Permutation of the result
+    result = permute(result, per, 32)
 
-def print_key(key):
-    # Function to print the key schedule
-    print("Key Schedule:")
-    for round_key in key:
-        print(" ".join(round_key))
-    print()
+    # XOR left and result
+    xor_result = xor(left, result)
 
-# Inverse S-box table for SubBytes operation
-inv_sbox = [
-    [0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb],
-    [0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb],
-    [0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e],
-    [0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49, 0x6d, 0x8b, 0xd1, 0x25],
-    [0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92],
-    [0x6c, 0x70, 0x48, 0x50, 0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84],
-    [0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05, 0xb8, 0xb3, 0x45, 0x06],
-    [0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02, 0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b],
-]
+    # SWAP
+    left = xor_result
+    if i != 15:
+        left, right = right, left
 
-def gmul(a, b):
-    # Function to perform Galois Field multiplication
-    p = 0
-    for _ in range(8):
-        if b & 1:
-            p ^= a
-        hi_bit_set = a & 0x80
-        a <<= 1
-        if hi_bit_set:
-            a ^= 0x1b
-        b >>= 1
-    return p
+print("After round 16:", bin2hex(left.upper() + right.upper()))
 
-if __name__ == "__main__":
-    # Taking input for pt and key
-    pt = input("Enter the value for plain text: ")
-    key = input("Enter the value for key: ")
+# Combination
+combine = left + right
 
-    # Key generation
-    key = hex2bin(key)
-    key = permute(key, keyp, 56)
-
-    rkb = []
-    rk = []
-    for i in range(0, 16):
-        left = shift_left(left, shift_table[i])
-        right = shift_left(right, shift_table[i])
-        combine_str = left + right
-        round_key = permute(combine_str, key_comp, 48)
-        rkb.append(round_key)
-        rk.append(bin2hex(round_key))
-
-    print("Encryption")
-    cipher_text = bin2hex(encrypt(pt, rkb, rk))
-    print("Cipher Text : ", cipher_text)
-
-    print("Decryption")
-    rkb_rev = rkb[::-1]
-    rk_rev = rk[::-1]
-    text = bin2hex(encrypt(cipher_text, rkb_rev, rk_rev))
-    print("Plain Text : ", text)
+# Final Permutation
+cipher_text = permute(combine, final_perm, 64)
+print("Cipher Text:", bin2hex(cipher_text.upper()))
